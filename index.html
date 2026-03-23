@@ -1,0 +1,1257 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OmniMail — Hypermodern Messaging</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+  /* ── Reset & Variables ── */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:        #090b0f;
+    --bg2:       #0f1218;
+    --bg3:       #161b24;
+    --border:    #1e2533;
+    --border2:   #2a3344;
+    --accent:    #f7931a;       /* Bitcoin orange */
+    --accent2:   #00d4aa;       /* Lightning teal */
+    --accent3:   #7b61ff;       /* Crypto purple */
+    --text:      #e8edf5;
+    --text2:     #8a97b0;
+    --text3:     #4a5568;
+    --danger:    #ff4757;
+    --success:   #2ecc71;
+    --font-mono: 'Space Mono', monospace;
+    --font-ui:   'Syne', sans-serif;
+    --radius:    6px;
+    --transition: 200ms cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  html, body {
+    height: 100%;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-ui);
+    overflow: hidden;
+  }
+
+  /* ── Noise Texture Overlay ── */
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
+    pointer-events: none; z-index: 9999;
+    opacity: 0.4;
+  }
+
+  /* ── Layout ── */
+  .app { display: grid; grid-template-columns: 240px 1fr; grid-template-rows: 52px 1fr; height: 100vh; }
+
+  /* ── Top Bar ── */
+  .topbar {
+    grid-column: 1 / -1;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 20px;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg);
+    position: relative;
+  }
+  .topbar::after {
+    content: '';
+    position: absolute; bottom: -1px; left: 0; right: 0; height: 1px;
+    background: linear-gradient(90deg, transparent, var(--accent), var(--accent2), var(--accent3), transparent);
+    opacity: 0.6;
+  }
+  .logo {
+    display: flex; align-items: center; gap: 10px;
+    font-family: var(--font-mono); font-weight: 700; font-size: 15px;
+    letter-spacing: 0.05em;
+    color: var(--text);
+  }
+  .logo-icon {
+    width: 26px; height: 26px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    border-radius: 6px;
+    display: grid; place-items: center;
+    font-size: 13px;
+  }
+  .logo span { color: var(--accent); }
+
+  .topbar-right { display: flex; align-items: center; gap: 12px; }
+
+  .status-pill {
+    display: flex; align-items: center; gap: 6px;
+    padding: 4px 10px;
+    background: var(--bg3); border: 1px solid var(--border2);
+    border-radius: 20px;
+    font-family: var(--font-mono); font-size: 10px;
+    color: var(--text2); cursor: default;
+  }
+  .status-dot {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--success);
+    animation: pulse 2s infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.3; }
+  }
+
+  .btn-compose {
+    display: flex; align-items: center; gap: 6px;
+    padding: 7px 14px;
+    background: var(--accent); border: none; border-radius: var(--radius);
+    color: #000; font-family: var(--font-ui); font-size: 12px; font-weight: 700;
+    letter-spacing: 0.05em; text-transform: uppercase;
+    cursor: pointer; transition: all var(--transition);
+  }
+  .btn-compose:hover {
+    background: #ffb347; transform: translateY(-1px);
+    box-shadow: 0 4px 20px rgba(247,147,26,0.4);
+  }
+
+  /* ── Sidebar ── */
+  .sidebar {
+    background: var(--bg2);
+    border-right: 1px solid var(--border);
+    display: flex; flex-direction: column;
+    overflow-y: auto;
+    padding: 16px 0;
+  }
+
+  .sidebar-section {
+    padding: 0 12px 16px;
+  }
+  .sidebar-label {
+    font-family: var(--font-mono); font-size: 9px; font-weight: 700;
+    letter-spacing: 0.15em; text-transform: uppercase;
+    color: var(--text3); padding: 8px 8px 6px;
+  }
+
+  .nav-item {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 8px 10px;
+    border-radius: var(--radius);
+    cursor: pointer;
+    transition: all var(--transition);
+    color: var(--text2);
+    font-size: 13px;
+  }
+  .nav-item:hover { background: var(--bg3); color: var(--text); }
+  .nav-item.active { background: var(--bg3); color: var(--text); border-left: 2px solid var(--accent); }
+  .nav-item-left { display: flex; align-items: center; gap: 8px; }
+  .nav-icon { font-size: 14px; width: 18px; text-align: center; }
+  .nav-badge {
+    font-family: var(--font-mono); font-size: 10px;
+    background: var(--accent); color: #000;
+    padding: 1px 6px; border-radius: 10px;
+    font-weight: 700;
+  }
+
+  .adapter-item {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 7px 10px; border-radius: var(--radius);
+    font-size: 11px; font-family: var(--font-mono);
+    color: var(--text2);
+  }
+  .adapter-name { display: flex; align-items: center; gap: 6px; }
+  .adapter-dot { width: 5px; height: 5px; border-radius: 50%; }
+  .adapter-dot.ok    { background: var(--success); }
+  .adapter-dot.warn  { background: var(--accent); }
+  .adapter-dot.error { background: var(--danger); }
+  .adapter-weight {
+    font-size: 9px; color: var(--text3);
+    padding: 1px 5px; border: 1px solid var(--border2); border-radius: 3px;
+  }
+
+  .queue-stats {
+    margin: 0 12px; padding: 10px;
+    background: var(--bg3); border: 1px solid var(--border);
+    border-radius: var(--radius);
+  }
+  .queue-stats-title {
+    font-family: var(--font-mono); font-size: 9px; font-weight: 700;
+    letter-spacing: 0.1em; text-transform: uppercase;
+    color: var(--text3); margin-bottom: 8px;
+  }
+  .queue-row {
+    display: flex; justify-content: space-between; align-items: center;
+    font-size: 11px; font-family: var(--font-mono);
+    color: var(--text2); padding: 2px 0;
+  }
+  .queue-val { color: var(--accent2); font-weight: 700; }
+
+  /* ── Main Content ── */
+  .main {
+    display: flex; flex-direction: column;
+    overflow: hidden;
+    background: var(--bg);
+  }
+
+  /* ── Inbox ── */
+  .inbox-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 16px 24px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .inbox-title {
+    font-size: 18px; font-weight: 800; letter-spacing: -0.02em;
+  }
+  .inbox-subtitle { font-size: 12px; color: var(--text3); margin-top: 2px; font-family: var(--font-mono); }
+
+  .inbox-actions { display: flex; gap: 8px; }
+
+  .btn-icon {
+    width: 32px; height: 32px;
+    background: var(--bg3); border: 1px solid var(--border2);
+    border-radius: var(--radius);
+    display: grid; place-items: center;
+    font-size: 14px; cursor: pointer;
+    transition: all var(--transition);
+    color: var(--text2);
+  }
+  .btn-icon:hover { background: var(--border2); color: var(--text); }
+
+  .message-list {
+    flex: 1; overflow-y: auto;
+    padding: 8px 16px;
+  }
+
+  /* ── Message Card ── */
+  .message-card {
+    display: grid;
+    grid-template-columns: 42px 1fr auto;
+    gap: 12px; align-items: start;
+    padding: 14px 12px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background var(--transition);
+    border-bottom: 1px solid var(--border);
+    animation: slideIn 0.3s ease both;
+  }
+  @keyframes slideIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .message-card:hover { background: var(--bg2); }
+  .message-card.unread .msg-subject { font-weight: 700; color: var(--text); }
+  .message-card.encrypted .msg-body-preview::before {
+    content: '🔒 '; font-size: 11px;
+  }
+  .message-card.high-priority {
+    border-left: 2px solid var(--accent);
+    padding-left: 10px;
+  }
+
+  .msg-avatar {
+    width: 38px; height: 38px; border-radius: 8px;
+    display: grid; place-items: center;
+    font-weight: 800; font-size: 14px;
+    flex-shrink: 0;
+    color: #000;
+  }
+
+  .msg-sender { font-size: 12px; font-weight: 700; color: var(--text); }
+  .msg-subject { font-size: 13px; color: var(--text2); margin: 2px 0; }
+  .msg-body-preview {
+    font-size: 11px; color: var(--text3);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    font-family: var(--font-mono);
+  }
+  .msg-meta { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+  .msg-time { font-size: 10px; color: var(--text3); font-family: var(--font-mono); }
+  .msg-badges { display: flex; gap: 4px; flex-wrap: wrap; justify-content: flex-end; }
+  .badge {
+    font-size: 9px; font-family: var(--font-mono); font-weight: 700;
+    padding: 2px 6px; border-radius: 3px;
+    letter-spacing: 0.05em; text-transform: uppercase;
+  }
+  .badge.enc     { background: rgba(123,97,255,0.2); color: var(--accent3); border: 1px solid rgba(123,97,255,0.3); }
+  .badge.sig     { background: rgba(0,212,170,0.15); color: var(--accent2); border: 1px solid rgba(0,212,170,0.3); }
+  .badge.ln      { background: rgba(247,147,26,0.15); color: var(--accent);  border: 1px solid rgba(247,147,26,0.3); }
+  .badge.matrix  { background: rgba(99,179,237,0.15); color: #63b3ed;        border: 1px solid rgba(99,179,237,0.3); }
+  .badge.smtp    { background: rgba(234,179,8,0.15);  color: #eab308;        border: 1px solid rgba(234,179,8,0.3); }
+  .badge.high    { background: rgba(255,71,87,0.15);  color: var(--danger);  border: 1px solid rgba(255,71,87,0.3); }
+
+  /* ── Compose Modal ── */
+  .modal-overlay {
+    position: fixed; inset: 0;
+    background: rgba(9,11,15,0.85);
+    backdrop-filter: blur(8px);
+    display: grid; place-items: center;
+    z-index: 1000;
+    opacity: 0; pointer-events: none;
+    transition: opacity var(--transition);
+  }
+  .modal-overlay.open { opacity: 1; pointer-events: all; }
+
+  .compose-modal {
+    width: 600px; max-width: 95vw; max-height: 90vh;
+    background: var(--bg2);
+    border: 1px solid var(--border2);
+    border-radius: 12px;
+    display: flex; flex-direction: column;
+    overflow: hidden;
+    transform: translateY(20px) scale(0.97);
+    transition: transform var(--transition);
+    box-shadow: 0 40px 80px rgba(0,0,0,0.6);
+  }
+  .modal-overlay.open .compose-modal { transform: none; }
+
+  .modal-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border);
+    font-weight: 800; font-size: 14px; letter-spacing: 0.02em;
+  }
+  .modal-close {
+    width: 28px; height: 28px; border-radius: 6px;
+    background: var(--bg3); border: 1px solid var(--border2);
+    display: grid; place-items: center;
+    cursor: pointer; font-size: 16px; color: var(--text2);
+    transition: all var(--transition);
+  }
+  .modal-close:hover { background: var(--danger); color: white; border-color: var(--danger); }
+
+  .modal-body { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 14px; }
+
+  .field-group { display: flex; flex-direction: column; gap: 5px; }
+  .field-label {
+    font-family: var(--font-mono); font-size: 10px; font-weight: 700;
+    letter-spacing: 0.1em; text-transform: uppercase;
+    color: var(--text3);
+  }
+  .field-input {
+    background: var(--bg3); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 9px 12px;
+    color: var(--text); font-family: var(--font-mono); font-size: 12px;
+    outline: none; transition: border-color var(--transition);
+    width: 100%;
+  }
+  .field-input:focus { border-color: var(--accent2); }
+  .field-input::placeholder { color: var(--text3); }
+  textarea.field-input {
+    resize: vertical; min-height: 120px; font-family: var(--font-mono); font-size: 12px;
+  }
+
+  .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+  /* ── Toggle Options ── */
+  .compose-options {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px;
+  }
+  .option-toggle {
+    display: flex; flex-direction: column; align-items: center; gap: 5px;
+    padding: 10px 8px;
+    background: var(--bg3); border: 1px solid var(--border);
+    border-radius: var(--radius);
+    cursor: pointer; transition: all var(--transition);
+    font-family: var(--font-mono); font-size: 10px; color: var(--text2);
+    text-align: center;
+  }
+  .option-toggle:hover { border-color: var(--border2); }
+  .option-toggle.on { border-color: currentColor; }
+  .option-toggle.on.enc { color: var(--accent3); background: rgba(123,97,255,0.1); }
+  .option-toggle.on.sig { color: var(--accent2); background: rgba(0,212,170,0.1); }
+  .option-toggle.on.ln  { color: var(--accent);  background: rgba(247,147,26,0.1); }
+  .option-icon { font-size: 18px; }
+
+  /* ── Lightning row ── */
+  .lightning-row {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 12px;
+    background: rgba(247,147,26,0.08); border: 1px solid rgba(247,147,26,0.2);
+    border-radius: var(--radius);
+    font-family: var(--font-mono); font-size: 11px; color: var(--accent);
+  }
+  .ln-icon { font-size: 18px; }
+
+  /* ── Priority selector ── */
+  .priority-row { display: flex; gap: 6px; }
+  .priority-btn {
+    flex: 1; padding: 6px;
+    background: var(--bg3); border: 1px solid var(--border);
+    border-radius: var(--radius);
+    font-family: var(--font-mono); font-size: 10px; font-weight: 700;
+    letter-spacing: 0.05em; text-transform: uppercase;
+    cursor: pointer; transition: all var(--transition);
+    color: var(--text2); text-align: center;
+  }
+  .priority-btn.active.low    { border-color: var(--text3); color: var(--text3); background: rgba(255,255,255,0.05); }
+  .priority-btn.active.normal { border-color: var(--accent2); color: var(--accent2); background: rgba(0,212,170,0.1); }
+  .priority-btn.active.high   { border-color: var(--danger); color: var(--danger); background: rgba(255,71,87,0.1); }
+
+  /* ── Adapter selector ── */
+  .adapter-select { display: flex; gap: 6px; flex-wrap: wrap; }
+  .adapter-chip {
+    padding: 4px 10px;
+    background: var(--bg3); border: 1px solid var(--border);
+    border-radius: 20px;
+    font-family: var(--font-mono); font-size: 10px;
+    cursor: pointer; transition: all var(--transition);
+    color: var(--text2);
+  }
+  .adapter-chip.selected { border-color: var(--accent2); color: var(--accent2); background: rgba(0,212,170,0.1); }
+
+  /* ── Modal Footer ── */
+  .modal-footer {
+    padding: 14px 20px;
+    border-top: 1px solid var(--border);
+    display: flex; justify-content: space-between; align-items: center;
+    gap: 10px;
+  }
+  .modal-footer-left { font-size: 11px; color: var(--text3); font-family: var(--font-mono); }
+  .modal-footer-right { display: flex; gap: 8px; }
+
+  .btn-secondary {
+    padding: 8px 16px;
+    background: var(--bg3); border: 1px solid var(--border2);
+    border-radius: var(--radius);
+    color: var(--text2); font-family: var(--font-ui); font-size: 12px;
+    cursor: pointer; transition: all var(--transition);
+  }
+  .btn-secondary:hover { background: var(--border2); color: var(--text); }
+
+  .btn-send {
+    padding: 8px 20px;
+    background: linear-gradient(135deg, var(--accent), #e8820a);
+    border: none; border-radius: var(--radius);
+    color: #000; font-family: var(--font-ui); font-size: 12px; font-weight: 800;
+    cursor: pointer; transition: all var(--transition);
+    letter-spacing: 0.05em; text-transform: uppercase;
+  }
+  .btn-send:hover {
+    box-shadow: 0 4px 20px rgba(247,147,26,0.5);
+    transform: translateY(-1px);
+  }
+
+  /* ── Message Detail ── */
+  .message-detail {
+    flex: 1; overflow-y: auto;
+    padding: 24px;
+    display: none;
+    flex-direction: column; gap: 16px;
+    animation: fadeIn 0.2s ease;
+  }
+  .message-detail.visible { display: flex; }
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+  .detail-header { display: flex; justify-content: space-between; align-items: flex-start; }
+  .detail-subject { font-size: 22px; font-weight: 800; letter-spacing: -0.02em; }
+  .detail-meta { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .detail-meta-item { font-size: 11px; color: var(--text3); font-family: var(--font-mono); }
+  .detail-meta-sep { color: var(--border2); }
+
+  .detail-participants {
+    padding: 12px 16px;
+    background: var(--bg2); border: 1px solid var(--border);
+    border-radius: var(--radius);
+  }
+  .participant-row {
+    display: flex; justify-content: space-between;
+    font-size: 12px; font-family: var(--font-mono);
+    padding: 3px 0; color: var(--text2);
+  }
+  .participant-label { color: var(--text3); font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; }
+  .participant-value { color: var(--accent2); }
+
+  .detail-transport {
+    display: flex; gap: 8px; align-items: center;
+    padding: 10px 14px;
+    background: var(--bg2); border: 1px solid var(--border);
+    border-radius: var(--radius);
+    font-size: 11px; font-family: var(--font-mono); color: var(--text2);
+  }
+  .transport-hop {
+    display: flex; align-items: center; gap: 4px;
+  }
+  .hop-connector { color: var(--text3); padding: 0 4px; }
+
+  .detail-body {
+    background: var(--bg2); border: 1px solid var(--border);
+    border-radius: 8px; padding: 20px;
+    font-family: var(--font-mono); font-size: 13px; line-height: 1.7;
+    color: var(--text); white-space: pre-wrap; word-break: break-word;
+  }
+
+  .lightning-panel {
+    padding: 14px 16px;
+    background: rgba(247,147,26,0.06);
+    border: 1px solid rgba(247,147,26,0.2);
+    border-radius: var(--radius);
+    font-family: var(--font-mono); font-size: 11px;
+  }
+  .lightning-title { color: var(--accent); font-weight: 700; font-size: 12px; margin-bottom: 8px; }
+  .lightning-invoice { color: var(--text3); word-break: break-all; font-size: 10px; line-height: 1.5; }
+
+  .detail-actions { display: flex; gap: 8px; }
+  .btn-action {
+    padding: 8px 16px;
+    background: var(--bg3); border: 1px solid var(--border2);
+    border-radius: var(--radius);
+    color: var(--text2); font-size: 12px;
+    cursor: pointer; transition: all var(--transition);
+  }
+  .btn-action:hover { background: var(--border2); color: var(--text); }
+  .btn-action.primary { background: rgba(0,212,170,0.1); border-color: var(--accent2); color: var(--accent2); }
+  .btn-action.primary:hover { background: rgba(0,212,170,0.2); }
+
+  /* ── Scrollbar ── */
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+
+  /* ── Empty State ── */
+  .empty-state {
+    flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 12px; color: var(--text3);
+  }
+  .empty-icon { font-size: 48px; opacity: 0.4; }
+  .empty-title { font-size: 16px; font-weight: 700; }
+  .empty-sub { font-size: 12px; font-family: var(--font-mono); }
+
+  /* ── Toast ── */
+  .toast-container { position: fixed; bottom: 20px; right: 20px; display: flex; flex-direction: column; gap: 8px; z-index: 9000; }
+  .toast {
+    padding: 10px 16px;
+    background: var(--bg3); border: 1px solid var(--border2);
+    border-radius: var(--radius);
+    font-size: 12px; font-family: var(--font-mono);
+    color: var(--text);
+    animation: toastIn 0.3s ease;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+  }
+  .toast.success { border-color: var(--success); color: var(--success); }
+  .toast.error   { border-color: var(--danger);  color: var(--danger); }
+  @keyframes toastIn { from { opacity: 0; transform: translateX(20px); } to { opacity: 1; transform: none; } }
+
+  /* ── View switcher ── */
+  .view-switcher { display: flex; }
+</style>
+</head>
+<body>
+
+<div class="app">
+
+  <!-- Top Bar -->
+  <header class="topbar">
+    <div class="logo">
+      <div class="logo-icon">✉</div>
+      Omni<span>Mail</span>
+    </div>
+    <div class="topbar-right">
+      <div class="status-pill">
+        <div class="status-dot"></div>
+        <span id="wsStatus">CONNECTED</span>
+      </div>
+      <button class="btn-compose" onclick="openCompose()">
+        ✦ Compose
+      </button>
+    </div>
+  </header>
+
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="sidebar-section">
+      <div class="sidebar-label">Mailbox</div>
+      <div class="nav-item active" onclick="showView('inbox')">
+        <div class="nav-item-left"><span class="nav-icon">📥</span> Inbox</div>
+        <span class="nav-badge" id="inboxBadge">0</span>
+      </div>
+      <div class="nav-item" onclick="showView('sent')">
+        <div class="nav-item-left"><span class="nav-icon">📤</span> Sent</div>
+      </div>
+      <div class="nav-item" onclick="showView('encrypted')">
+        <div class="nav-item-left"><span class="nav-icon">🔒</span> Encrypted</div>
+      </div>
+      <div class="nav-item" onclick="showView('deadletter')">
+        <div class="nav-item-left"><span class="nav-icon">💀</span> Dead Letter</div>
+        <span class="nav-badge" id="deadBadge" style="display:none;background:var(--danger)">0</span>
+      </div>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="sidebar-label">Adapters</div>
+      <div id="adapterList">
+        <div class="adapter-item">
+          <div class="adapter-name"><div class="adapter-dot ok"></div>memory</div>
+          <span class="adapter-weight">w:10</span>
+        </div>
+        <div class="adapter-item">
+          <div class="adapter-name"><div class="adapter-dot warn"></div>smtp</div>
+          <span class="adapter-weight">w:80</span>
+        </div>
+        <div class="adapter-item">
+          <div class="adapter-name"><div class="adapter-dot ok"></div>matrix</div>
+          <span class="adapter-weight">w:60</span>
+        </div>
+        <div class="adapter-item">
+          <div class="adapter-name"><div class="adapter-dot ok"></div>webhook</div>
+          <span class="adapter-weight">w:40</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="queue-stats">
+      <div class="queue-stats-title">⚡ Queue</div>
+      <div class="queue-row"><span>Waiting</span><span class="queue-val" id="qWaiting">0</span></div>
+      <div class="queue-row"><span>Retrying</span><span class="queue-val" id="qRetrying">0</span></div>
+      <div class="queue-row"><span>Sent</span><span class="queue-val" id="qSent">0</span></div>
+      <div class="queue-row"><span>Dead</span><span class="queue-val" id="qDead">0</span></div>
+    </div>
+  </aside>
+
+  <!-- Main Content -->
+  <main class="main" id="mainContent">
+
+    <!-- Inbox View -->
+    <div id="inboxView">
+      <div class="inbox-header">
+        <div>
+          <div class="inbox-title">Inbox</div>
+          <div class="inbox-subtitle" id="inboxSubtitle">— messages loaded from all adapters —</div>
+        </div>
+        <div class="inbox-actions">
+          <button class="btn-icon" onclick="refreshInbox()" title="Refresh">↻</button>
+          <button class="btn-icon" onclick="clearInbox()" title="Clear">✕</button>
+        </div>
+      </div>
+      <div class="message-list" id="messageList">
+        <!-- Messages rendered here -->
+      </div>
+    </div>
+
+    <!-- Message Detail View -->
+    <div id="detailView" style="display:none; flex:1; overflow:hidden; flex-direction:column;">
+      <div class="inbox-header" style="flex-shrink:0;">
+        <button class="btn-icon" onclick="showView('inbox')" style="margin-right:10px;">←</button>
+        <div style="flex:1">
+          <div class="inbox-title" style="font-size:14px;" id="detailTitle">Message</div>
+        </div>
+      </div>
+      <div class="message-detail visible" id="messageDetail"></div>
+    </div>
+
+  </main>
+</div>
+
+<!-- Compose Modal -->
+<div class="modal-overlay" id="composeModal">
+  <div class="compose-modal">
+    <div class="modal-header">
+      <span>✦ New Message</span>
+      <div class="modal-close" onclick="closeCompose()">✕</div>
+    </div>
+    <div class="modal-body">
+
+      <div class="field-row">
+        <div class="field-group">
+          <label class="field-label">From</label>
+          <input class="field-input" id="cFrom" type="text" placeholder="you@omnimail.test" value="alice@omnimail.test">
+        </div>
+        <div class="field-group">
+          <label class="field-label">To</label>
+          <input class="field-input" id="cTo" type="text" placeholder="recipient@example.com">
+        </div>
+      </div>
+
+      <div class="field-group">
+        <label class="field-label">Subject</label>
+        <input class="field-input" id="cSubject" type="text" placeholder="Message subject…">
+      </div>
+
+      <div class="field-group">
+        <label class="field-label">Message Body</label>
+        <textarea class="field-input" id="cBody" placeholder="Write your message here…"></textarea>
+      </div>
+
+      <div class="field-group">
+        <label class="field-label">Priority</label>
+        <div class="priority-row">
+          <button class="priority-btn low" onclick="setPriority('low')">LOW</button>
+          <button class="priority-btn normal active" onclick="setPriority('normal')">NORMAL</button>
+          <button class="priority-btn high" onclick="setPriority('high')">HIGH ⚡</button>
+        </div>
+      </div>
+
+      <div class="field-group">
+        <label class="field-label">Transport Options</label>
+        <div class="compose-options">
+          <div class="option-toggle enc" id="optEncrypt" onclick="toggleOpt('encrypt')">
+            <div class="option-icon">🔒</div>
+            <div>ENCRYPT</div>
+          </div>
+          <div class="option-toggle sig" id="optSign" onclick="toggleOpt('sign')">
+            <div class="option-icon">✍️</div>
+            <div>SIGN</div>
+          </div>
+          <div class="option-toggle ln" id="optLightning" onclick="toggleOpt('lightning')">
+            <div class="option-icon">⚡</div>
+            <div>LIGHTNING</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="lightning-row" id="lightningRow" style="display:none;">
+        <div class="ln-icon">⚡</div>
+        <div>
+          <div style="font-weight:700; font-size:12px;">Lightning Payment</div>
+          <div style="font-size:10px; opacity:0.7; margin-top:2px;">
+            Amount (msats): <input type="number" id="lnAmount" value="1000"
+              style="background:transparent;border:none;outline:none;color:var(--accent);font-family:var(--font-mono);width:70px;">
+          </div>
+        </div>
+      </div>
+
+      <div class="field-group">
+        <label class="field-label">Preferred Adapters</label>
+        <div class="adapter-select" id="adapterSelect">
+          <div class="adapter-chip" data-adapter="smtp" onclick="toggleAdapter(this)">smtp</div>
+          <div class="adapter-chip" data-adapter="matrix" onclick="toggleAdapter(this)">matrix</div>
+          <div class="adapter-chip" data-adapter="webhook" onclick="toggleAdapter(this)">webhook</div>
+          <div class="adapter-chip" data-adapter="memory" onclick="toggleAdapter(this)">memory</div>
+        </div>
+      </div>
+
+    </div>
+    <div class="modal-footer">
+      <div class="modal-footer-left" id="composeStatus">Ready to send</div>
+      <div class="modal-footer-right">
+        <button class="btn-secondary" onclick="closeCompose()">Cancel</button>
+        <button class="btn-send" onclick="sendMessage()">SEND ✦</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Toast Container -->
+<div class="toast-container" id="toastContainer"></div>
+
+<script>
+// ── State ──────────────────────────────────────────────────────────────────
+
+const API_BASE = 'http://localhost:8000';
+
+let messages     = [];
+let queueStats   = { waiting: 0, retrying: 0, sent: 0, dead: 0 };
+let composeState = { encrypt: false, sign: false, lightning: false, priority: 'normal', adapters: [] };
+let ws           = null;
+let currentView  = 'inbox';
+
+// ── Demo Data (shown when API is unavailable) ──────────────────────────────
+
+const DEMO_MESSAGES = [
+  {
+    id: 'msg-001',
+    sender: 'satoshi@bitcoin.org',
+    recipients: ['alice@omnimail.test'],
+    subject: 'The Bitcoin Whitepaper – read this',
+    body: 'I am attaching a paper describing a peer-to-peer electronic cash system that uses cryptographic proof instead of trust.',
+    message_type: 'plaintext',
+    timestamp: Date.now() / 1000 - 3600,
+    priority: 'normal',
+    status: 'sent',
+    fingerprint: 'a1b2c3d4e5f67890',
+    has_signature: true,
+    has_lightning: false,
+    routing_history: [{ adapter: 'smtp', status: 'sent', note: 'OK' }],
+    attachments: [],
+  },
+  {
+    id: 'msg-002',
+    sender: 'relay@matrix.org',
+    recipients: ['alice@omnimail.test'],
+    subject: '🔒 Encrypted: Server keys rotated',
+    body: 'xA8j9K2mN4pR7sT1vW3yZ6bD9fH2lP5nQ8rU1tX4wY7aC0dE...',
+    message_type: 'encrypted',
+    timestamp: Date.now() / 1000 - 1800,
+    priority: 'high',
+    status: 'sent',
+    fingerprint: 'f0e1d2c3b4a59687',
+    has_signature: true,
+    has_lightning: true,
+    routing_history: [
+      { adapter: 'smtp', status: 'failed', note: 'timeout' },
+      { adapter: 'matrix', status: 'sent', note: 'OK' }
+    ],
+    attachments: [],
+    lightning: { amount_msats: 1000, invoice: 'lnbc10n1pj...', payment_hash: 'abc123' }
+  },
+  {
+    id: 'msg-003',
+    sender: 'github-actions@noreply.github.com',
+    recipients: ['alice@omnimail.test'],
+    subject: 'CI/CD Pipeline: Build #1337 passed',
+    body: 'Your build completed successfully. All 247 tests passed.\n\nView at: https://github.com/your-repo/actions/runs/1337',
+    message_type: 'plaintext',
+    timestamp: Date.now() / 1000 - 600,
+    priority: 'low',
+    status: 'sent',
+    fingerprint: '1234567890abcdef',
+    has_signature: false,
+    has_lightning: false,
+    routing_history: [{ adapter: 'webhook', status: 'sent', note: 'OK' }],
+    attachments: [],
+  },
+  {
+    id: 'msg-004',
+    sender: 'lightning@ln.omnimail.test',
+    recipients: ['alice@omnimail.test'],
+    subject: '⚡ Priority Alert: Payment received 50,000 sats',
+    body: 'A Lightning payment of 50,000 satoshis has been received on your node.\n\nPayment hash: d5f2a8e1...\nChannel: 842571x1x0',
+    message_type: 'signed',
+    timestamp: Date.now() / 1000 - 120,
+    priority: 'high',
+    status: 'sent',
+    fingerprint: 'deadbeefcafe1234',
+    has_signature: true,
+    has_lightning: true,
+    routing_history: [{ adapter: 'memory', status: 'sent', note: 'OK' }],
+    attachments: [],
+    lightning: { amount_msats: 50_000_000, invoice: 'lnbc500u1p...', payment_hash: 'd5f2a8e1' }
+  },
+];
+
+const DEMO_QUEUE = { waiting: 2, retrying: 1, sent: 47, dead: 0 };
+
+// ── Initialisation ─────────────────────────────────────────────────────────
+
+async function init() {
+  try {
+    const res = await fetch(`${API_BASE}/health`, { signal: AbortSignal.timeout(1500) });
+    if (res.ok) {
+      toast('API connected', 'success');
+      await loadInbox();
+      await loadQueueStats();
+      initWebSocket();
+    } else {
+      throw new Error('API error');
+    }
+  } catch {
+    // API unavailable – use demo data
+    messages = [...DEMO_MESSAGES];
+    queueStats = { ...DEMO_QUEUE };
+    renderMessages(messages);
+    renderQueueStats();
+    toast('Demo mode (API offline)', 'error');
+    document.getElementById('wsStatus').textContent = 'DEMO MODE';
+  }
+}
+
+// ── API calls ──────────────────────────────────────────────────────────────
+
+async function loadInbox() {
+  try {
+    const res = await fetch(`${API_BASE}/messages/inbox`);
+    messages = await res.json();
+    renderMessages(messages);
+  } catch {}
+}
+
+async function refreshInbox() {
+  try {
+    const res = await fetch(`${API_BASE}/messages/inbox/fetch`);
+    const newMsgs = await res.json();
+    if (newMsgs.length) {
+      messages = [...newMsgs, ...messages];
+      renderMessages(messages);
+      toast(`${newMsgs.length} new message(s)`, 'success');
+    } else {
+      toast('No new messages');
+    }
+  } catch {
+    // Demo: add a fake incoming message
+    const fake = {
+      id: 'demo-' + Date.now(),
+      sender: 'demo@omnimail.test',
+      recipients: ['alice@omnimail.test'],
+      subject: 'Live demo message',
+      body: 'This simulates a received message in demo mode.',
+      message_type: 'plaintext',
+      timestamp: Date.now() / 1000,
+      priority: 'normal',
+      status: 'sent',
+      fingerprint: Math.random().toString(16).slice(2, 18),
+      has_signature: false,
+      has_lightning: false,
+      routing_history: [],
+    };
+    messages = [fake, ...messages];
+    renderMessages(messages);
+    toast('Demo: 1 new message', 'success');
+  }
+}
+
+async function clearInbox() {
+  try { await fetch(`${API_BASE}/messages/inbox`, { method: 'DELETE' }); } catch {}
+  messages = [];
+  renderMessages(messages);
+}
+
+async function loadQueueStats() {
+  try {
+    const res = await fetch(`${API_BASE}/queue/stats`);
+    queueStats = await res.json();
+    renderQueueStats();
+  } catch {}
+}
+
+async function sendMessageAPI(payload) {
+  const res = await fetch(`${API_BASE}/messages/send`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  return res.json();
+}
+
+// ── WebSocket ──────────────────────────────────────────────────────────────
+
+function initWebSocket() {
+  try {
+    ws = new WebSocket(`ws://localhost:8000/ws`);
+    ws.onopen = () => {
+      document.getElementById('wsStatus').textContent = 'LIVE';
+    };
+    ws.onmessage = (e) => {
+      const data = JSON.parse(e.data);
+      if (data.event === 'new_message') {
+        messages.unshift(data.message);
+        renderMessages(messages);
+        toast('New message received', 'success');
+      } else if (data.event === 'queue_stats') {
+        queueStats = data.stats;
+        renderQueueStats();
+      }
+    };
+    ws.onclose = () => {
+      document.getElementById('wsStatus').textContent = 'RECONNECTING';
+      setTimeout(initWebSocket, 3000);
+    };
+  } catch {}
+}
+
+// ── Rendering ──────────────────────────────────────────────────────────────
+
+const AVATAR_COLORS = [
+  '#f7931a','#00d4aa','#7b61ff','#ff4757','#63b3ed','#2ecc71','#eab308','#ff6b9d'
+];
+
+function avatarColor(seed) {
+  let h = 0;
+  for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) & 0xffffffff;
+  return AVATAR_COLORS[Math.abs(h) % AVATAR_COLORS.length];
+}
+
+function formatTime(ts) {
+  const d = new Date(ts * 1000);
+  const now = new Date();
+  if (d.toDateString() === now.toDateString()) {
+    return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  }
+  return d.toLocaleDateString([], { month: 'short', day: 'numeric' });
+}
+
+function renderMessages(msgs) {
+  const list = document.getElementById('messageList');
+  document.getElementById('inboxBadge').textContent = msgs.length;
+
+  if (!msgs.length) {
+    list.innerHTML = `
+      <div class="empty-state">
+        <div class="empty-icon">📭</div>
+        <div class="empty-title">No messages</div>
+        <div class="empty-sub">Inbox is empty · compose or refresh</div>
+      </div>`;
+    return;
+  }
+
+  list.innerHTML = msgs.map((msg, i) => {
+    const initials = (msg.sender || '?').slice(0, 2).toUpperCase();
+    const color    = avatarColor(msg.sender || '');
+    const isEnc    = msg.message_type === 'encrypted';
+    const isHigh   = msg.priority === 'high';
+    const adapter  = msg.routing_history?.slice(-1)[0]?.adapter || 'unknown';
+    const preview  = isEnc ? '[Encrypted content]' : (msg.body || '').slice(0, 80);
+
+    const badges = [
+      msg.has_signature ? '<span class="badge sig">SIG</span>' : '',
+      msg.has_lightning ? '<span class="badge ln">⚡ LN</span>' : '',
+      isEnc             ? '<span class="badge enc">ENC</span>' : '',
+      isHigh            ? '<span class="badge high">PRIORITY</span>' : '',
+      adapter === 'matrix'  ? '<span class="badge matrix">Matrix</span>' : '',
+      adapter === 'smtp'    ? '<span class="badge smtp">SMTP</span>' : '',
+    ].filter(Boolean).join('');
+
+    return `
+    <div class="message-card ${isEnc ? 'encrypted' : ''} ${isHigh ? 'high-priority' : ''} unread"
+         style="animation-delay:${i * 40}ms"
+         onclick="showDetail('${msg.id}')">
+      <div class="msg-avatar" style="background:${color}">${initials}</div>
+      <div>
+        <div class="msg-sender">${msg.sender || 'Unknown'}</div>
+        <div class="msg-subject">${msg.subject || '(no subject)'}</div>
+        <div class="msg-body-preview">${preview}</div>
+      </div>
+      <div class="msg-meta">
+        <div class="msg-time">${formatTime(msg.timestamp)}</div>
+        <div class="msg-badges">${badges}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function renderQueueStats() {
+  document.getElementById('qWaiting').textContent  = queueStats.waiting  || 0;
+  document.getElementById('qRetrying').textContent = queueStats.retrying || 0;
+  document.getElementById('qSent').textContent     = queueStats.sent     || 0;
+  document.getElementById('qDead').textContent     = queueStats.dead     || 0;
+  const dead = queueStats.dead || 0;
+  const badge = document.getElementById('deadBadge');
+  badge.style.display = dead > 0 ? 'inline' : 'none';
+  badge.textContent = dead;
+}
+
+// ── Views ──────────────────────────────────────────────────────────────────
+
+function showView(view) {
+  currentView = view;
+  document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+  const navItems = document.querySelectorAll('.nav-item');
+  const idx = ['inbox','sent','encrypted','deadletter'].indexOf(view);
+  if (navItems[idx]) navItems[idx].classList.add('active');
+
+  document.getElementById('inboxView').style.display = '';
+  document.getElementById('detailView').style.display = 'none';
+
+  if (view === 'encrypted') {
+    renderMessages(messages.filter(m => m.message_type === 'encrypted'));
+  } else if (view === 'sent') {
+    renderMessages(messages.filter(m => m.status === 'sent'));
+  } else {
+    renderMessages(messages);
+  }
+}
+
+function showDetail(msgId) {
+  const msg = messages.find(m => m.id === msgId);
+  if (!msg) return;
+
+  document.getElementById('inboxView').style.display = 'none';
+  const dv = document.getElementById('detailView');
+  dv.style.display = 'flex';
+  document.getElementById('detailTitle').textContent = msg.subject || '(no subject)';
+
+  const hops = (msg.routing_history || []).map((h, i, arr) => {
+    const icon = h.status === 'sent' ? '✓' : '✗';
+    return `<div class="transport-hop">
+      <span style="color:${h.status==='sent'?'var(--success)':'var(--danger)'}">${icon}</span>
+      <span style="color:var(--text2)">${h.adapter}</span>
+    </div>${i < arr.length - 1 ? '<span class="hop-connector">→</span>' : ''}`;
+  }).join('') || '<span style="color:var(--text3)">No routing history</span>';
+
+  const lnPanel = msg.has_lightning && msg.lightning ? `
+    <div class="lightning-panel">
+      <div class="lightning-title">⚡ Lightning Payment Attached</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
+        <div style="font-size:10px;color:var(--text3)">AMOUNT</div>
+        <div style="font-size:11px;color:var(--accent)">${(msg.lightning.amount_msats/1000).toLocaleString()} sats</div>
+        <div style="font-size:10px;color:var(--text3)">HASH</div>
+        <div style="font-size:11px;color:var(--text2)">${(msg.lightning.payment_hash||'').slice(0,20)}…</div>
+      </div>
+      <div class="lightning-invoice">${(msg.lightning.invoice||'').slice(0, 80)}…</div>
+    </div>` : '';
+
+  document.getElementById('messageDetail').innerHTML = `
+    <div class="detail-participants">
+      <div class="participant-row">
+        <span class="participant-label">From</span>
+        <span class="participant-value">${msg.sender}</span>
+      </div>
+      <div class="participant-row">
+        <span class="participant-label">To</span>
+        <span class="participant-value">${(msg.recipients||[]).join(', ')}</span>
+      </div>
+      <div class="participant-row">
+        <span class="participant-label">ID</span>
+        <span style="color:var(--text3);font-size:10px">${msg.id}</span>
+      </div>
+    </div>
+
+    <div class="detail-meta">
+      <span class="detail-meta-item">${new Date(msg.timestamp * 1000).toLocaleString()}</span>
+      <span class="detail-meta-sep">·</span>
+      <span class="detail-meta-item">TYPE: ${msg.message_type}</span>
+      <span class="detail-meta-sep">·</span>
+      <span class="detail-meta-item">PRIORITY: ${msg.priority}</span>
+      ${msg.has_signature ? '<span class="badge sig">SIGNED</span>' : ''}
+      ${msg.message_type === 'encrypted' ? '<span class="badge enc">ENCRYPTED</span>' : ''}
+    </div>
+
+    <div class="detail-transport">
+      <span style="color:var(--text3);font-size:10px;text-transform:uppercase;letter-spacing:0.1em;margin-right:4px;">ROUTE</span>
+      ${hops}
+    </div>
+
+    <div class="detail-body">${msg.body || '(empty body)'}</div>
+
+    ${lnPanel}
+
+    <div class="detail-actions">
+      <button class="btn-action primary" onclick="replyToMsg('${msg.id}')">↩ Reply</button>
+      <button class="btn-action" onclick="copyFingerprint('${msg.fingerprint}')">🔑 Fingerprint</button>
+      ${msg.message_type==='encrypted' ? '<button class="btn-action" onclick="toast(\'Decrypt: load your key pair first\')">🔓 Decrypt</button>' : ''}
+    </div>
+  `;
+}
+
+// ── Compose ────────────────────────────────────────────────────────────────
+
+function openCompose() {
+  document.getElementById('composeModal').classList.add('open');
+}
+
+function closeCompose() {
+  document.getElementById('composeModal').classList.remove('open');
+}
+
+function setPriority(p) {
+  composeState.priority = p;
+  document.querySelectorAll('.priority-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.classList.contains(p));
+  });
+}
+
+function toggleOpt(opt) {
+  composeState[opt] = !composeState[opt];
+  const el = document.getElementById('opt' + opt.charAt(0).toUpperCase() + opt.slice(1));
+  el.classList.toggle('on', composeState[opt]);
+  if (opt === 'lightning') {
+    document.getElementById('lightningRow').style.display = composeState.lightning ? 'flex' : 'none';
+  }
+}
+
+function toggleAdapter(el) {
+  const a = el.dataset.adapter;
+  el.classList.toggle('selected');
+  if (el.classList.contains('selected')) {
+    composeState.adapters.push(a);
+  } else {
+    composeState.adapters = composeState.adapters.filter(x => x !== a);
+  }
+}
+
+async function sendMessage() {
+  const from    = document.getElementById('cFrom').value.trim();
+  const to      = document.getElementById('cTo').value.trim();
+  const subject = document.getElementById('cSubject').value.trim();
+  const body    = document.getElementById('cBody').value.trim();
+
+  if (!from || !to) {
+    toast('From and To fields are required', 'error');
+    return;
+  }
+
+  const payload = {
+    sender:             from,
+    to:                 to.split(',').map(s => s.trim()),
+    subject,
+    body,
+    priority:           composeState.priority,
+    encrypt:            composeState.encrypt,
+    sign:               composeState.sign,
+    lightning_msats:    composeState.lightning
+                          ? parseInt(document.getElementById('lnAmount').value) || 1000
+                          : null,
+    preferred_adapters: composeState.adapters,
+  };
+
+  document.getElementById('composeStatus').textContent = 'Sending…';
+
+  try {
+    const result = await sendMessageAPI(payload);
+    const fakeOut = {
+      id: result.message_id || ('demo-' + Date.now()),
+      sender: from,
+      recipients: payload.to,
+      subject,
+      body,
+      message_type: composeState.encrypt ? 'encrypted' : (composeState.sign ? 'signed' : 'plaintext'),
+      timestamp: Date.now() / 1000,
+      priority: composeState.priority,
+      status: 'sent',
+      fingerprint: Math.random().toString(16).slice(2, 18),
+      has_signature: composeState.sign,
+      has_lightning: composeState.lightning,
+      routing_history: [{ adapter: composeState.adapters[0] || 'memory', status: 'sent', note: 'OK' }],
+    };
+    messages.unshift(fakeOut);
+    renderMessages(messages);
+    queueStats.sent++;
+    renderQueueStats();
+    toast('Message queued for delivery', 'success');
+  } catch {
+    // Demo fallback
+    const fakeOut = {
+      id: 'demo-' + Date.now(),
+      sender: from, recipients: payload.to, subject, body,
+      message_type: composeState.encrypt ? 'encrypted' : 'plaintext',
+      timestamp: Date.now() / 1000, priority: composeState.priority,
+      status: 'sent', fingerprint: Math.random().toString(16).slice(2,18),
+      has_signature: composeState.sign, has_lightning: composeState.lightning,
+      routing_history: [],
+    };
+    messages.unshift(fakeOut);
+    renderMessages(messages);
+    toast('Demo: message sent', 'success');
+  }
+
+  closeCompose();
+  document.getElementById('cTo').value = '';
+  document.getElementById('cSubject').value = '';
+  document.getElementById('cBody').value = '';
+  document.getElementById('composeStatus').textContent = 'Ready to send';
+}
+
+function replyToMsg(msgId) {
+  const msg = messages.find(m => m.id === msgId);
+  if (!msg) return;
+  openCompose();
+  document.getElementById('cTo').value = msg.sender;
+  document.getElementById('cSubject').value = 'Re: ' + (msg.subject || '');
+}
+
+function copyFingerprint(fp) {
+  navigator.clipboard?.writeText(fp).catch(() => {});
+  toast(`Fingerprint copied: ${fp.slice(0, 16)}…`);
+}
+
+// ── Toast ──────────────────────────────────────────────────────────────────
+
+function toast(msg, type = '') {
+  const c = document.getElementById('toastContainer');
+  const t = document.createElement('div');
+  t.className = `toast ${type}`;
+  t.textContent = msg;
+  c.appendChild(t);
+  setTimeout(() => t.remove(), 3500);
+}
+
+// ── Keyboard shortcuts ─────────────────────────────────────────────────────
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') closeCompose();
+  if (e.key === 'n' && !e.ctrlKey && !e.metaKey && document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'TEXTAREA') {
+    openCompose();
+  }
+});
+
+// ── Boot ────────────────────────────────────────────────────────────────────
+init();
+setInterval(loadQueueStats, 10000);
+</script>
+</body>
+</html>
