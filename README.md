@@ -1,4 +1,4 @@
-# OmniMail — Next-Generation Transport-Agnostic Messaging Protocol
+# OmniMail — Next-Generation Messaging Protocol
 
 ```
 ╔══════════════════════════════════════════════════════════════╗
@@ -204,7 +204,3 @@ class XMPPAdapter(BaseAdapter):
 # Register it
 sdk.register_adapter("xmpp", XMPPAdapter())
 ```
-
-## License
-
-MIT
